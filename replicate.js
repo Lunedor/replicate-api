@@ -4,7 +4,7 @@ let canvasStates = {}; // Track state per canvas (only for the mask)
 let currentModelVersion = null;
 
 const modelList = {
-    "text2image": [
+     "text2image": [
         "black-forest-labs/flux-1.1-pro-ultra",
         "black-forest-labs/flux-1.1-pro",
         "black-forest-labs/flux-dev",
@@ -30,10 +30,12 @@ const modelList = {
     "inpaint": [
         "black-forest-labs/flux-fill-pro",
         "ideogram-ai/ideogram-v2",
-        "ideogram-ai / ideogram-v2-turbo",
+        "ideogram-ai/ideogram-v2-turbo",
         "stability-ai/stable-diffusion-inpainting",
         "zsxkib/flux-dev-inpainting",
         "lucataco/realistic-vision-v5-inpainting",
+        "asiryan/realistic-vision-v6.0-b1",
+        "pagebrain/dreamshaper-v7",
         "fermatresearch/flux-controlnet-inpaint"
     ],
     "outpaint": [
@@ -187,6 +189,23 @@ function setupCanvas() {
     canvas.addEventListener('mouseup', () => stopDrawing());
 }
 
+async function fetchWithTimeout(url, options = {}, timeout = 30000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        return response;
+    } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+    }
+}
+
 // Updated runPrediction function
 async function runPrediction() {
     const apiKey = getApiKey();
@@ -291,33 +310,40 @@ async function runPrediction() {
     document.getElementById("generate-button").disabled = true;
     document.getElementById('status-message').innerText = "Starting prediction...";
 
-
-    try {
+	
+    try {	
         let prediction = await createPrediction(apiKey, currentModelVersion.versionId, input);
         let predictionResult = await getPrediction(apiKey, prediction.id);
+		let retries = 3;
 
-        while (
-            predictionResult.status !== "succeeded" &&
-            predictionResult.status !== "failed"
-        ) {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            predictionResult = await getPrediction(apiKey, prediction.id);
-            document.getElementById("status-message").innerText =
-                `Status: ${predictionResult.status}`;
-        }
-
+		while (true) {
+			try {
+				predictionResult = await getPrediction(apiKey, prediction.id);
+				if (predictionResult.status === "succeeded" || 
+					predictionResult.status === "failed") break;
+				
+				await new Promise(resolve => setTimeout(resolve, 2000));
+			} catch (error) {
+            if (retries-- <= 0) throw error;
+            await new Promise(resolve => setTimeout(resolve, 5000));
+			}
+		}
         document.getElementById("status-message").innerText =
             `Status: ${predictionResult.status}`;
 
-        if (
-            predictionResult &&
-            predictionResult.output &&
-            Array.isArray(predictionResult.output)
-        ) {
-            updateOutput(predictionResult.output);
-            document.getElementById("status-message").innerText =
-                "Prediction succeeded!";
-        } else if (predictionResult.error) {
+        if (predictionResult.status === "succeeded") {
+				try {
+					updateOutput(predictionResult.output);
+					if (document.querySelectorAll('.output-image').length === 0) {
+						throw new Error('No valid images found in output');
+					}
+					document.getElementById("status-message").innerText = "Prediction succeeded!";
+				} catch (error) {
+					document.getElementById("status-message").innerText = 
+						"Prediction succeeded but failed to display images";
+					document.getElementById("status-message").classList.add("error");
+				}
+			} else if (predictionResult.error) {
             document.getElementById("status-message").innerText =
                 "Prediction Failed: " + JSON.stringify(predictionResult.error);
             document.getElementById("status-message").classList.add("error");
@@ -617,19 +643,30 @@ async function createPrediction(apiKey, versionId, input) { // Changed parameter
     return await response.json();
 }
 
-async function getPrediction(apiKey, id) {
-    const response = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
-        headers: {
-            "Authorization": `Token ${apiKey}`,
-            "Content-Type": "application/json"
-        }
-    });
+async function getPrediction(apiKey, id, retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const response = await fetchWithTimeout(
+                `https://api.replicate.com/v1/predictions/${id}`,
+                {
+                    headers: {
+                        "Authorization": `Token ${apiKey}`,
+                        "Content-Type": "application/json"
+                    }
+                },
+                10000 // 10-second timeout for status checks
+            );
 
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error("Failed to get prediction: " + JSON.stringify(errorData));
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error("Failed to get prediction: " + JSON.stringify(errorData));
+            }
+            return await response.json();
+        } catch (error) {
+            if (i === retries - 1) throw error;
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
     }
-    return await response.json();
 }
 
 function updateOutput(output) {
@@ -640,41 +677,74 @@ function updateOutput(output) {
         // Handle different output formats
         let imageUrls = [];
         
-        if (Array.isArray(output)) {
-            // Standard array format (text2image models)
-            imageUrls = output;
-        } else if (typeof output === 'string') {
-            // Single image URL
+        if (typeof output === 'string') {
+            // Single image URL (common in SD3)
             imageUrls = [output];
+        } else if (Array.isArray(output)) {
+            // Multiple images (common in SDXL)
+            imageUrls = output;
         } else if (output?.image) {
-            // Object with image property (common in inpainting)
+            // Object with image property
             imageUrls = [output.image];
         } else if (output?.images) {
             // Object with images array
             imageUrls = output.images;
         }
 
-        // Create image elements
+        // Create image elements with loading handling
         if (imageUrls.length > 0) {
             imageUrls.forEach(imageUrl => {
+                const container = document.createElement('div');
+                container.className = 'image-container';
+                
                 const img = document.createElement('img');
-                img.src = imageUrl;
+                img.className = 'output-image';
                 img.alt = "Generated Image";
+                
+                // Loading state
+                img.style.opacity = '0.5';
+                img.style.transition = 'opacity 0.3s';
+                
+                // Error handling
                 img.onerror = () => {
                     console.error(`Failed to load image: ${imageUrl}`);
-                    img.style.display = 'none'; // Hide broken images
+                    container.innerHTML = `
+                        <div class="image-error">
+                            Failed to load image<br>
+                            <a href="${imageUrl}" target="_blank">Direct link</a>
+                        </div>
+                    `;
                 };
-                outputImages.appendChild(img);
+                
+                // Success handling
+                img.onload = () => {
+                    img.style.opacity = '1';
+                };
+
+                // Add source last to trigger loading
+                img.src = imageUrl;
+
+                container.appendChild(img);
+                outputImages.appendChild(container);
             });
         } else {
-            console.warn('No images found in output:', output);
-            document.getElementById('status-message').innerText = 
-                "Prediction succeeded but no images were found in the output";
+            const errorMessage = document.createElement('div');
+            errorMessage.className = 'output-error';
+            errorMessage.innerHTML = `
+                No images found in output. Possible issues:<br>
+                1. Content policy violation<br>
+                2. Model-specific output format<br>
+                3. Corrupted image generation<br>
+                <a href="${predictionResult.urls.get}" target="_blank">Check prediction details</a>
+            `;
+            outputImages.appendChild(errorMessage);
         }
     } catch (error) {
         console.error('Error processing output:', error);
-        document.getElementById('status-message').innerText = 
-            "Error processing output: " + error.message;
+        const errorElement = document.createElement('div');
+        errorElement.className = 'output-error';
+        errorElement.textContent = `Output processing error: ${error.message}`;
+        outputImages.appendChild(errorElement);
     }
 }
 
