@@ -17,9 +17,9 @@ Pure browser-based interface for Replicate's AI models using vanilla JavaScript
 ## Quick Start
 
 1. **Clone or download** the repository:
-
+   ```bash
    git clone https://github.com/lunedor/replicate-api.git
-
+   ```
 
 2. **Open in browser**:
    - Double-click `index.html` or
