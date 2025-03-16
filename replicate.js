@@ -437,12 +437,22 @@ function createImageUploadField(name, schema) {
     // Preview container
     const previewContainer = document.createElement("div");
     previewContainer.className = "preview-container";
-    previewContainer.id = `${name}-preview-container`;
+    previewContainer.id = `${name}-preview-container`; // Add ID for targeting
+    previewContainer.style.display = 'none'; // Initially hidden
 
     // Image preview
     const imgPreview = document.createElement("img");
     imgPreview.className = "image-preview";
     imgPreview.id = `preview-${name}`;
+
+    // Remove button
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.textContent = "Remove";
+    removeButton.id = `remove-${name}-button`;
+    removeButton.style.display = 'none'; // Initially hidden
+    removeButton.addEventListener('click', () => removeImage(name));
+
 
     // Add elements to container
     container.appendChild(label);
@@ -450,6 +460,7 @@ function createImageUploadField(name, schema) {
     container.appendChild(error);
     container.appendChild(previewContainer);
     previewContainer.appendChild(imgPreview);
+    container.appendChild(removeButton); // Add remove button
 
     if (name === "mask") {
         // Canvas and controls
@@ -471,10 +482,11 @@ function createImageUploadField(name, schema) {
     return container;
 }
 
-// Update handleImageUpload function
 function handleImageUpload(event, inputName) {
     const file = event.target.files[0];
     const imgPreview = document.getElementById(`preview-${inputName}`);
+    const previewContainer = document.getElementById(`${inputName}-preview-container`);
+    const removeButton = document.getElementById(`remove-${inputName}-button`);
     const errorElement = document.getElementById(`error-${inputName}`) || document.createElement("div"); // Fallback
 
     try {
@@ -496,12 +508,32 @@ function handleImageUpload(event, inputName) {
                 }
             };
             imgPreview.src = e.target.result;
+            previewContainer.style.display = 'block'; // Show preview
+            removeButton.style.display = 'block'; // Show remove button
         };
 
         reader.readAsDataURL(file);
     } catch (error) {
         errorElement.textContent = error.message;
         event.target.value = ""; // Clear invalid file selection
+        previewContainer.style.display = 'none'; // Hide preview on error
+        removeButton.style.display = 'none'; // Hide remove button on error
+    }
+}
+
+function removeImage(inputName) {
+    const fileInput = document.getElementById(`input-${inputName}`);
+    const imgPreview = document.getElementById(`preview-${inputName}`);
+    const previewContainer = document.getElementById(`${inputName}-preview-container`);
+    const removeButton = document.getElementById(`remove-${inputName}-button`);
+
+    fileInput.value = ""; // Clear file input
+    imgPreview.src = ""; // Clear preview image
+    previewContainer.style.display = 'none'; // Hide preview container
+    removeButton.style.display = 'none'; // Hide remove button
+
+    if (inputName === "mask") {
+        clearMask(); // Clear canvas if it's a mask
     }
 }
 
