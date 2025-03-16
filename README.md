@@ -10,7 +10,6 @@ Pure browser-based interface for Replicate's AI models using vanilla JavaScript
 - 🚀 **Zero Dependencies:** Just HTML, CSS, and JavaScript.
 - 🌐 **Browser-Ready:** Works straight out-of-the-box in modern browsers.
 - 🔄 **Real-Time Mask Editing:** Seamlessly edit masks on the fly.
-- 📦 **Single-File Architecture:** Simplify deployment with everything in one file.
 - 🔐 **API Key Authentication:** Secure access using API keys.
 - 🖼️ **Dynamic Model Integration:** Automatically fetch required model fields via API. Simply add any model to the `modelList` in the JavaScript file following the existing format.
 
