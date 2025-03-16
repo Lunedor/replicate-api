@@ -1,0 +1,179 @@
+/* replicate.css */
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 20px;
+    background-color: #171717;
+    color: #ffffff;
+    line-height: 1.6;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.input-section, .output-section {
+    border: 1px solid #404040;
+    padding: 20px;
+    border-radius: 8px;
+    background-color: #1f1f1f;
+}
+
+.output-section h2 {
+    margin-top: 0;
+    color: #4CAF50;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #cccccc;
+}
+
+input[type="text"], input[type="number"], input[type="file"], select, textarea {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #404040;
+    border-radius: 6px;
+    background-color: #2a2a2a;
+    color: #ffffff;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+input[type="range"] {
+    width: 100%; /* Important for consistent appearance */
+    height: 4px;
+    background: #404040;
+    margin: 15px 0;
+}
+
+button {
+    padding: 10px 20px;
+    background-color: #2e7d32;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+button:hover {
+    background-color: #1b5e20;
+}
+
+/* VERY IMPORTANT FOR CANVAS POSITIONING */
+.preview-container {
+    position: relative;
+    display: block;
+    width: fit-content; /* ADD THIS LINE */
+    line-height: 0;
+    margin: 1rem 0;
+    border: 2px dashed #404040;
+    border-radius: 8px;
+    background: #2a2a2a;
+    max-width: 100%;
+    min-height: 100px;
+}
+
+.image-preview {
+    max-width: 100%;
+    max-height: 70vh;
+    width: auto;
+    height: auto;
+    display: block;  /* Also important */
+    position: relative;
+    z-index: 1;
+    margin: 0 auto;
+}
+
+.mask-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+    cursor: crosshair;
+    image-rendering: crisp-edges;
+    touch-action: none;
+    pointer-events: auto; /* Critical */
+	
+}
+
+.brush-controls {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    background: #252525;
+    padding: 12px;
+    border-radius: 6px;
+}
+
+.brush-controls input[type="range"] {
+    width: 120px;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.brush-controls button {
+    padding: 8px 16px;
+    background-color: #3a3a3a;
+    border: 1px solid #4a4a4a;
+    font-size: 13px;
+}
+
+#output-images {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+
+#output-images img {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    border: 2px solid #404040;
+    transition: transform 0.2s;
+}
+
+#output-images img:hover {
+    transform: scale(1.02);
+}
+
+#dynamic-inputs {
+    position: relative; /*  Important for z-index to work */
+    z-index: 3;        /*  Higher z-index than the canvas */
+}
+
+#model-details-container {
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+#model-details-container a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+#model-details-container a:hover {
+    text-decoration: underline;
+}
+
+.hidden { display: none !important; }
+.error { color: #ff4444; margin-top: 10px; font-size: 14px; }
+#dynamic-inputs { border: 1px solid #404040; padding: 20px; margin: 20px 0; border-radius: 8px; background-color: #1f1f1f; }
+#dynamic-inputs > div { margin-bottom: 25px; }
+#dynamic-inputs > div:last-child { margin-bottom: 0; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: #4CAF50; border-radius: 50%; cursor: pointer; }
+input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; background: #4CAF50; border-radius: 50%; cursor: pointer; }
+input[type="file"] { padding: 8px; border: 1px dashed #404040 !important; }
+input[type="file"]::file-selector-button { background: #2e7d32; color: white; border: none; padding: 8px 12px; border-radius: 4px; margin-right: 10px; cursor: pointer; }
+select { appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 10px center; background-size: 12px; padding-right: 30px !important; }

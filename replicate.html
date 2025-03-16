@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Replicate Image Tool</title>
+    <link rel="stylesheet" href="replicate.css">  <!-- Link to the CSS file -->
+</head>
+<body>
+    <div class="container">
+        <h1>Replicate Image Tool</h1>
+
+        <div class="input-section">
+            <label for="api-key">Replicate API Key:</label>
+            <input type="text" id="api-key" placeholder="Enter your API key">
+
+            <label for="model-select">Model:</label>
+            <select id="model-select"></select>
+			<div id="model-details-container">Select a model to view details</div>
+            <div id="dynamic-inputs">
+                <!-- Dynamically generated inputs will go here -->
+            </div>
+
+            <button id="generate-button">Generate</button>
+            <p id="status-message"></p>
+        </div>
+
+        <div class="output-section">
+            <h2>Output:</h2>
+            <div id="output-images"></div>
+        </div>
+    </div>
+
+    <script src="replicate.js"></script> <!-- Link to the JavaScript file -->
+</body>
+</html>
