@@ -1,10 +1,8 @@
 # replicate-api
 
-```markdown
 # AI Image Generation Web Interface  
 [![Live Demo](https://img.shields.io/badge/demo-live-green.svg)](https://tesla.x10.mx/)
 
-[<img src="[path/to/image.png](https://img.shields.io/badge/demo-live-green.svg)">]([https://link-to-your-URL/](https://tesla.x10.mx/))
 Pure browser-based interface for Replicate's AI models using vanilla JavaScript
 
 ## Features
@@ -19,9 +17,9 @@ Pure browser-based interface for Replicate's AI models using vanilla JavaScript
 ## Quick Start
 
 1. **Clone or download** the repository:
-```bash
+
 git clone https://github.com/lunedor/replicate-api.git
-```
+
 
 2. **Open in browser**:
    - Double-click `index.html` or
@@ -41,13 +39,12 @@ git clone https://github.com/lunedor/replicate-api.git
 
 ## File Structure
 
-```
 /
 ├── index.html          # Main interface
 ├── replicate.js        # Core logic
 ├── styles.css          # Styling
 └── README.md           # This documentation
-```
+
 
 ## Browser Requirements
 
@@ -92,5 +89,3 @@ git clone https://github.com/lunedor/replicate-api.git
 ## License
 
 MIT License - free for personal and commercial use
-```
-
