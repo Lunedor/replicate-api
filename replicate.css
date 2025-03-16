@@ -353,6 +353,29 @@ button:hover {
     height: 24px;
 }
 
+.file-upload-group {
+    border: 2px dashed #404040;
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+}
+
+.file-upload-group input[type="file"] {
+    display: block;
+    margin: 0.5rem 0;
+}
+
+.file-preview {
+    width: 200px;
+    height: 200px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    border: 1px solid #404040;
+    border-radius: 4px;
+    margin-top: 1rem;
+}
+
 .hidden { display: none !important; }
 .error { color: #ff4444; margin-top: 10px; font-size: 14px; }
 #dynamic-inputs { border: 1px solid #404040; padding: 20px; margin: 20px 0; border-radius: 8px; background-color: #1f1f1f; }
