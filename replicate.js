@@ -39,7 +39,7 @@ const modelList = {
         "fermatresearch/flux-controlnet-inpaint"
     ],
     "outpaint": [
-        "stability-ai/sdxl",
+        "black-forest-labs/flux-fill-pro",
         "fermatresearch/sdxl-outpainting-lora"
     ]
 };
@@ -53,6 +53,21 @@ function getApiKey() {
 
 function validateApiKey(apiKey) {
     return apiKey !== "";
+}
+
+// Save API Key
+function saveApiKey(apiKey) {
+    localStorage.setItem('replicateApiKey', apiKey);
+}
+
+// Load API Key
+function loadApiKey() {
+    return localStorage.getItem('replicateApiKey') || '';
+}
+
+// Clear API Key
+function clearApiKey() {
+    localStorage.removeItem('replicateApiKey');
 }
 
 function getSelectedModel() {
@@ -208,6 +223,10 @@ async function fetchWithTimeout(url, options = {}, timeout = 30000) {
 
 // Updated runPrediction function
 async function runPrediction() {
+	const outputImages = document.getElementById('output-images');
+    if (outputImages) {
+        outputImages.innerHTML = ''; // Clear all child elements
+    }
     const apiKey = getApiKey();
     if (!validateApiKey(apiKey)) {
         document.getElementById('status-message').innerText = "Please enter your Replicate API key.";
@@ -272,7 +291,11 @@ async function runPrediction() {
                 case "number":
                     input[inputName] = parseFloat(element.value) || 0;
                     break;
-
+					
+				case "integer":
+                    input[inputName] = parseFloat(element.value) || 0;
+                    break;
+					
                 case "boolean":
                     input[inputName] = element.checked;
                     break;
@@ -367,6 +390,7 @@ function createInputElement(name, schema) {
     const label = document.createElement("label");
     label.textContent = `${name}:`;
     label.setAttribute("for", `input-${name}`);
+	
 
     let input;
     const isImageField = ["image", "mask"].includes(name) && schema.format === "uri";
@@ -669,6 +693,45 @@ async function getPrediction(apiKey, id, retries = 3) {
     }
 }
 
+function initImageModal() {
+    const modal = document.getElementById('image-modal');
+    const modalImg = document.getElementById('modal-image');
+    const downloadBtn = document.getElementById('download-btn');
+    const closeBtn = document.querySelector('.modal-close');
+
+    // Click handlers
+    document.querySelectorAll('#output-images img').forEach(img => {
+        img.addEventListener('click', () => {
+            modal.classList.add('modal-visible');
+            modalImg.src = img.src;
+            downloadBtn.dataset.downloadUrl = img.src;
+        });
+    });
+
+    closeBtn.addEventListener('click', () => {
+        modal.classList.remove('modal-visible');
+    });
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.classList.remove('modal-visible');
+        }
+    });
+
+    downloadBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const url = downloadBtn.dataset.downloadUrl;
+        if (url) {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `generated-image-${Date.now()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    });
+}
+
 function updateOutput(output) {
     const outputImages = document.getElementById('output-images');
     outputImages.innerHTML = '';
@@ -678,20 +741,15 @@ function updateOutput(output) {
         let imageUrls = [];
         
         if (typeof output === 'string') {
-            // Single image URL (common in SD3)
             imageUrls = [output];
         } else if (Array.isArray(output)) {
-            // Multiple images (common in SDXL)
             imageUrls = output;
         } else if (output?.image) {
-            // Object with image property
             imageUrls = [output.image];
         } else if (output?.images) {
-            // Object with images array
             imageUrls = output.images;
         }
 
-        // Create image elements with loading handling
         if (imageUrls.length > 0) {
             imageUrls.forEach(imageUrl => {
                 const container = document.createElement('div');
@@ -701,13 +759,11 @@ function updateOutput(output) {
                 img.className = 'output-image';
                 img.alt = "Generated Image";
                 
-                // Loading state
+                // Loading states
                 img.style.opacity = '0.5';
                 img.style.transition = 'opacity 0.3s';
-                
-                // Error handling
+
                 img.onerror = () => {
-                    console.error(`Failed to load image: ${imageUrl}`);
                     container.innerHTML = `
                         <div class="image-error">
                             Failed to load image<br>
@@ -715,15 +771,25 @@ function updateOutput(output) {
                         </div>
                     `;
                 };
-                
-                // Success handling
+
                 img.onload = () => {
                     img.style.opacity = '1';
+                    
+                    // Add click handler after image loads
+                    img.addEventListener('click', () => {
+                        const modal = document.getElementById('image-modal');
+                        const modalImg = document.getElementById('modal-image');
+                        const downloadBtn = document.getElementById('download-btn');
+                        
+                        if (modal && modalImg && downloadBtn) {
+                            modal.classList.add('modal-visible');
+                            modalImg.src = img.src;
+                            downloadBtn.dataset.downloadUrl = img.src;
+                        }
+                    });
                 };
 
-                // Add source last to trigger loading
                 img.src = imageUrl;
-
                 container.appendChild(img);
                 outputImages.appendChild(container);
             });
@@ -734,16 +800,14 @@ function updateOutput(output) {
                 No images found in output. Possible issues:<br>
                 1. Content policy violation<br>
                 2. Model-specific output format<br>
-                3. Corrupted image generation<br>
-                <a href="${predictionResult.urls.get}" target="_blank">Check prediction details</a>
-            `;
+                3. Corrupted image generation
+            `; // Removed predictionResult reference
             outputImages.appendChild(errorMessage);
         }
     } catch (error) {
-        console.error('Error processing output:', error);
         const errorElement = document.createElement('div');
         errorElement.className = 'output-error';
-        errorElement.textContent = `Output processing error: ${error.message}`;
+        errorElement.textContent = `Output error: ${error.message}`;
         outputImages.appendChild(errorElement);
     }
 }
@@ -872,21 +936,90 @@ async function handleModelChange() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-
+    const apiKeyInput = document.getElementById('api-key');
+    const rememberCheckbox = document.getElementById('remember-key');
+    const clearButton = document.getElementById('clear-key');
+    const modelSelect = document.getElementById("model-select");
     const generateButton = document.getElementById('generate-button');
+	const modal = document.getElementById('image-modal');
+    const closeBtn = document.querySelector('.modal-close');
+    const downloadBtn = document.getElementById('download-btn');
+
+    // Load saved key and initialize UI
+    const savedKey = loadApiKey();
+    if (savedKey) {
+        apiKeyInput.value = savedKey;
+        rememberCheckbox.checked = true;
+    }
+
+    // Event handlers
+    rememberCheckbox.addEventListener('change', () => {
+        if (rememberCheckbox.checked && apiKeyInput.value) {
+            saveApiKey(apiKeyInput.value);
+        } else {
+            clearApiKey();
+        }
+        populateModelSelect();
+    });
+
+    apiKeyInput.addEventListener('input', () => {
+        if (rememberCheckbox.checked) {
+            saveApiKey(apiKeyInput.value);
+        }
+        modelCache = {};
+        populateModelSelect();
+    });
+
+    clearButton.addEventListener('click', () => {
+        clearApiKey();
+        apiKeyInput.value = '';
+        rememberCheckbox.checked = false;
+        populateModelSelect();
+    });
+	
+	closeBtn.addEventListener('click', () => {
+        modal.classList.remove('modal-visible');
+    });
+
+    // Close when clicking outside
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.classList.remove('modal-visible');
+        }
+    });
+
+    // Download handler
+    downloadBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const url = downloadBtn.dataset.downloadUrl;
+        if (url) {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `generated-${Date.now()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    });
+
     if (generateButton) {
         generateButton.addEventListener('click', runPrediction);
     }
 
-    populateModelSelect();
-    const modelSelect = document.getElementById("model-select");
-    modelSelect.addEventListener("change", handleModelChange)
+    modelSelect.addEventListener("change", handleModelChange);
 
-    const apiKeyInput = document.getElementById('api-key');
-    if (apiKeyInput) {
-        apiKeyInput.addEventListener('input', () => {
-            modelCache = {};
-            populateModelSelect();
-        });
+    // Initial population with API key check
+    function handleModelLoading() {
+        if (!getApiKey()) {
+            modelSelect.innerHTML = `
+                <option value="" disabled selected>
+                    Enter API key to load models
+                </option>
+            `;
+            return;
+        }
+        populateModelSelect();
     }
+
+    handleModelLoading();
 });
