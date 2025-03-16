@@ -11,9 +11,28 @@
         <h1>Replicate Image Tool</h1>
 
         <div class="input-section">
-            <label for="api-key">Replicate API Key:</label>
-            <input type="text" id="api-key" placeholder="Enter your API key">
-
+			<h2>Replicate API Key:</h2>
+			<div class="api-key-group">
+				<label for="api-key">Replicate API Key</label>
+				<div class="api-key-input-container">
+					<input type="password" id="api-key" placeholder="r8_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+					<div class="api-key-controls">
+						<div class="checkbox-wrapper">
+						  <label for="remember-key">
+							<input type="checkbox" id="remember-key">
+							<span class="cbx">
+							  <svg width="12px" height="11px" viewBox="0 0 12 11">
+								<polyline points="1 6.29411765 4.5 10 11 1"></polyline>
+							  </svg>
+							</span>
+						  </label>
+						</div>
+						<button type="button" id="clear-key" class="secondary-btn">
+							X
+						</button>
+					</div>
+				</div>
+			</div>
             <label for="model-select">Model:</label>
             <select id="model-select"></select>
 			<div id="model-details-container">Select a model to view details</div>
@@ -30,6 +49,19 @@
             <div id="output-images"></div>
         </div>
     </div>
+	<div id="image-modal" class="modal-hidden">
+    <div class="modal-content">
+        <span class="modal-close">&times;</span>
+        <div class="modal-image-container">
+            <img id="modal-image" src="" alt="Zoomed Image">
+            <button id="download-btn" title="Download Image">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+	</div>
 
     <script src="replicate.js"></script> <!-- Link to the JavaScript file -->
 </body>
