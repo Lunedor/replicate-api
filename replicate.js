@@ -223,168 +223,116 @@ async function fetchWithTimeout(url, options = {}, timeout = 30000) {
 
 // Updated runPrediction function
 async function runPrediction() {
-	const outputImages = document.getElementById('output-images');
-    if (outputImages) {
-        outputImages.innerHTML = ''; // Clear all child elements
-    }
     const apiKey = getApiKey();
-    if (!validateApiKey(apiKey)) {
-        document.getElementById('status-message').innerText = "Please enter your Replicate API key.";
-        document.getElementById('status-message').classList.add('error');
-        return;
-    }
-    document.getElementById('status-message').classList.remove('error');
-    document.getElementById('status-message').innerText = "";
+    const statusElement = document.getElementById('status-message');
+    const generateButton = document.getElementById('generate-button');
+    
+    // Clear previous output and reset status
+    const outputImages = document.getElementById('output-images');
+    if (outputImages) outputImages.innerHTML = '';
+    statusElement.classList.remove('error');
+    statusElement.innerText = "Starting prediction...";
 
-    if (!currentModelVersion) {
-        document.getElementById('status-message').innerText = "Model version not found. Please select a model.";
-        document.getElementById('status-message').classList.add('error');
-        return;
-    }
-    let input = {};
     try {
+        // Validate API key and model
+        if (!validateApiKey(apiKey)) {
+            throw new Error("Please enter your Replicate API key.");
+        }
+        if (!currentModelVersion) {
+            throw new Error("Model version not found. Please select a model.");
+        }
+
+        // Fetch model details
         const versionDetails = await fetchModelVersionDetails(
             currentModelVersion.modelIdentifier,
             currentModelVersion.versionId
         );
 
-        if (!versionDetails?.openapi_schema?.components?.schemas?.Input) {
-            throw new Error("Could not retrieve input schema");
-        }
-        const inputSchema = versionDetails.openapi_schema.components.schemas.Input.properties;
-        const requiredFields = versionDetails.openapi_schema.components.schemas.Input.required || [];
+        // Validate schema
+        const inputSchema = versionDetails?.openapi_schema?.components?.schemas?.Input?.properties;
+        const requiredFields = versionDetails?.openapi_schema?.components?.schemas?.Input?.required || [];
+        if (!inputSchema) throw new Error("Could not retrieve input schema");
 
-        // Process all inputs
-        for (const inputName in inputSchema) {
+        // Process inputs
+        const input = {};
+        for (const [inputName, schema] of Object.entries(inputSchema)) {
             const element = document.getElementById(`input-${inputName}`);
             if (!element) continue;
-            switch (inputSchema[inputName].type) {
-                case "string":
-                    if (inputSchema[inputName].format === "uri") {
-                        // Handle image inputs
-                        if (["image", "mask"].includes(inputName)) {
-                            if (inputName === "mask") {
-                                // Get mask from canvas
-                                const canvas = document.getElementById('canvas-mask');
-                                if (canvas) {
-                                    input[inputName] = canvas.toDataURL('image/png');
-                                }
-                            } else {
-                                // Handle file upload
-                                const file = element.files?.[0];
-                                if (file) {
-                                    input[inputName] = await new Promise((resolve) => {
-                                        const reader = new FileReader();
-                                        reader.onload = (e) => resolve(e.target.result);
-                                        reader.readAsDataURL(file);
-                                    });
-                                }
-                            }
-                        } else {
-                            input[inputName] = element.value.trim();
-                        }
-                    } else {
-                        input[inputName] = element.value.trim();
-                    }
-                    break;
 
+            // Handle file inputs
+            if (schema.format === "uri" && ["image", "mask", "image_prompt"].includes(inputName)) {
+                if (inputName === "mask") {
+                    const canvas = document.getElementById('canvas-mask');
+                    if (canvas) input[inputName] = canvas.toDataURL('image/png');
+                } else if (element.files?.[0]) {
+                    input[inputName] = await fileToDataURI(element.files[0]);
+                }
+                continue;
+            }
+
+            // Handle other input types
+            switch(schema.type) {
+                case "string":
+                    input[inputName] = element.value.trim();
+                    break;
                 case "number":
-                    input[inputName] = parseFloat(element.value) || 0;
+                case "integer":
+                    input[inputName] = Number(element.value) || 0;
                     break;
-					
-				case "integer":
-                    input[inputName] = parseFloat(element.value) || 0;
-                    break;
-					
                 case "boolean":
                     input[inputName] = element.checked;
                     break;
-
                 case "array":
-                    input[inputName] = element.value.split(',').map(item => item.trim());
-                    break;
-
-                case "file":
-                    // Already handled by uri format
+                    input[inputName] = element.value.split(',').map(i => i.trim());
                     break;
             }
         }
 
         // Validate required fields
         for (const field of requiredFields) {
-            if (!input[field] && input[field] !== false) {
+            if (input[field] === undefined || input[field] === "") {
                 throw new Error(`Missing required field: ${field}`);
             }
         }
 
-        // Handle seed specifically
-        if (input.seed === null || isNaN(input.seed)) {
+        // Handle seed generation
+        if (!input.seed || isNaN(input.seed)) {
             input.seed = Math.floor(Math.random() * 1000000000);
-        } else {
-            input.seed = parseInt(input.seed);
         }
 
-    } catch (error) {
-        document.getElementById('status-message').innerText = `Input Error: ${error.message}`;
-        document.getElementById('status-message').classList.add('error');
-        return;
-    }
+        // Start prediction
+        generateButton.disabled = true;
+        const prediction = await createPrediction(apiKey, currentModelVersion.versionId, input);
+        
+        // Poll prediction status
+        let predictionResult;
+        let retries = 3;
+        do {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            try {
+                predictionResult = await getPrediction(apiKey, prediction.id);
+            } catch (error) {
+                if (retries-- <= 0) throw error;
+                await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+        } while (predictionResult?.status === "starting" || predictionResult?.status === "processing");
 
-    document.getElementById("generate-button").disabled = true;
-    document.getElementById('status-message').innerText = "Starting prediction...";
-
-	
-    try {	
-        let prediction = await createPrediction(apiKey, currentModelVersion.versionId, input);
-        let predictionResult = await getPrediction(apiKey, prediction.id);
-		let retries = 3;
-
-		while (true) {
-			try {
-				predictionResult = await getPrediction(apiKey, prediction.id);
-				if (predictionResult.status === "succeeded" || 
-					predictionResult.status === "failed") break;
-				
-				await new Promise(resolve => setTimeout(resolve, 2000));
-			} catch (error) {
-            if (retries-- <= 0) throw error;
-            await new Promise(resolve => setTimeout(resolve, 5000));
-			}
-		}
-        document.getElementById("status-message").innerText =
-            `Status: ${predictionResult.status}`;
-
+        // Handle final result
         if (predictionResult.status === "succeeded") {
-				try {
-					updateOutput(predictionResult.output);
-					if (document.querySelectorAll('.output-image').length === 0) {
-						throw new Error('No valid images found in output');
-					}
-					document.getElementById("status-message").innerText = "Prediction succeeded!";
-				} catch (error) {
-					document.getElementById("status-message").innerText = 
-						"Prediction succeeded but failed to display images";
-					document.getElementById("status-message").classList.add("error");
-				}
-			} else if (predictionResult.error) {
-            document.getElementById("status-message").innerText =
-                "Prediction Failed: " + JSON.stringify(predictionResult.error);
-            document.getElementById("status-message").classList.add("error");
+            updateOutput(predictionResult.output);
+            statusElement.innerText = "Prediction succeeded!";
         } else {
-            document.getElementById("status-message").innerText =
-                "Prediction result is unexpected";
-            document.getElementById("status-message").classList.add("error");
+            throw new Error(predictionResult.error || "Prediction failed");
         }
+
     } catch (error) {
-        document.getElementById("status-message").innerText = `Error: ${error.message}`;
-        document.getElementById("status-message").classList.add("error");
-        console.error("Error during prediction:", error);
+        statusElement.innerText = `Error: ${error.message}`;
+        statusElement.classList.add('error');
+        console.error("Prediction error:", error);
     } finally {
-        document.getElementById("generate-button").disabled = false;
+        generateButton.disabled = false;
     }
 }
-
-// Updated createInputElement function
 function createInputElement(name, schema) {
     const container = document.createElement("div");
     const label = document.createElement("label");
@@ -397,6 +345,10 @@ function createInputElement(name, schema) {
 
     if (isImageField) {
         return createImageUploadField(name, schema);
+    }
+	
+	if (schema.type === "string" && schema.format === "uri") {
+        return createFileUploadField(name, schema);
     }
 
     switch (schema.type) {
@@ -431,7 +383,7 @@ function createInputElement(name, schema) {
 
         case "array":
             input = document.createElement("textarea");
-            break;
+            break;			
 
         default:
             return null;
@@ -462,73 +414,113 @@ function createInputElement(name, schema) {
     return container;
 }
 
-function createImageUploadField(name, schema) {
-    const container = document.createElement("div");
+// Add these file handling functions
 
-    // Create label element
-    const label = document.createElement("label");
-    label.textContent = `${name}:`;
-    label.setAttribute("for", `input-${name}`);
+function getAcceptedFileTypes(schema) {
+    // Handle Flux model's special case
+    if (schema.description?.includes("Must be jpeg, png, gif, or webp")) {
+        return "image/jpeg,image/png,image/gif,image/webp";
+    }
+    
+    // Generic handling from schema
+    return schema['x-accept'] || 
+           schema['x-file-types']?.join(',') || 
+           'image/*';
+}
 
-    // Error element
-    const error = document.createElement("div");
-    error.id = `error-${name}`;
-    error.className = "error-message";
-
-    // File input
-    const fileInput = document.createElement("input");
-    fileInput.type = "file";
-    fileInput.accept = "image/*";
-    fileInput.id = `input-${name}`;
-    fileInput.addEventListener("change", (event) => {
-        handleImageUpload(event, name);
-    });
-
-    // Preview container
-    const previewContainer = document.createElement("div");
-    previewContainer.className = "preview-container";
-    previewContainer.id = `${name}-preview-container`; // Add ID for targeting
-    previewContainer.style.display = 'none'; // Initially hidden
-
-    // Image preview
-    const imgPreview = document.createElement("img");
-    imgPreview.className = "image-preview";
-    imgPreview.id = `preview-${name}`;
-
-    // Remove button
-    const removeButton = document.createElement("button");
-    removeButton.type = "button";
-    removeButton.textContent = "Remove";
-    removeButton.id = `remove-${name}-button`;
-    removeButton.style.display = 'none'; // Initially hidden
-    removeButton.addEventListener('click', () => removeImage(name));
-
-
-    // Add elements to container
-    container.appendChild(label);
-    container.appendChild(fileInput);
-    container.appendChild(error);
-    container.appendChild(previewContainer);
-    previewContainer.appendChild(imgPreview);
-    container.appendChild(removeButton); // Add remove button
-
-    if (name === "mask") {
-        // Canvas and controls
-        const canvas = document.createElement("canvas");
-        canvas.id = "canvas-mask";
-        canvas.className = "mask-canvas";
-        previewContainer.appendChild(canvas);
-
-        const controls = document.createElement("div");
-        controls.className = "brush-controls";
-        controls.innerHTML = `
-            <input type="range" id="brush-size-mask" min="1" max="100" value="20">
-            <button type="button" id="clear-mask">Clear</button>
-            <button type="button" id="undo-mask">Undo</button>
-        `;
-        container.appendChild(controls);
+async function validateFile(file, schema) {
+    // Validate file size
+    if (schema['x-max-size']) {
+        const maxBytes = schema['x-max-size'] * 1024 * 1024;
+        if (file.size > maxBytes) {
+            throw new Error(`File too large (max ${schema['x-max-size']}MB)`);
+        }
     }
 
+    // Validate file type
+    const acceptedTypes = getAcceptedFileTypes(schema)
+        .split(',')
+        .map(t => t.trim().toLowerCase());
+
+    // Get normalized file type
+    const fileType = file.type.toLowerCase();
+    
+    // Check against accepted types
+    const isValidType = acceptedTypes.some(type => {
+        // Handle wildcards and specific types
+        if (type === '*/*' || type === 'image/*') return true;
+        if (type.includes('*')) {
+            const [mainType] = type.split('/');
+            return fileType.startsWith(mainType);
+        }
+        return fileType === type;
+    });
+
+    if (!isValidType) {
+        throw new Error(`Invalid file type: ${file.type}. Allowed types: ${acceptedTypes.join(', ')}`);
+    }
+
+    // Validate image dimensions if specified
+    if (schema['x-dimensions']) {
+        await new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                if (img.naturalWidth !== schema['x-dimensions'].width || 
+                    img.naturalHeight !== schema['x-dimensions'].height) {
+                    reject(new Error(`Must be ${schema['x-dimensions'].width}x${schema['x-dimensions'].height} pixels`));
+                } else {
+                    resolve();
+                }
+            };
+            img.onerror = () => reject(new Error("Invalid image file"));
+            img.src = URL.createObjectURL(file);
+        });
+    }
+}
+
+function fileToDataURI(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+// Updated createFileUploadField function
+function createFileUploadField(name, schema) {
+    const container = document.createElement("div");
+    container.className = "file-upload-group";
+    
+    const label = document.createElement("label");
+    label.textContent = `${schema.title || name}:`;
+    label.htmlFor = `input-${name}`;
+
+    const input = document.createElement("input");
+    input.type = "file";
+    input.id = `input-${name}`;
+    input.accept = getAcceptedFileTypes(schema);
+    
+    const preview = document.createElement("div");
+    preview.className = "file-preview";
+    
+    const error = document.createElement("div");
+    error.className = "error-message";
+
+    input.addEventListener("change", async () => {
+        error.textContent = "";
+        try {
+            if (input.files[0]) {
+                await validateFile(input.files[0], schema);
+                preview.style.backgroundImage = `url(${URL.createObjectURL(input.files[0])}`;
+            }
+        } catch (err) {
+            error.textContent = err.message;
+            input.value = "";
+        }
+    });
+
+    container.append(label, input, preview, error);
     return container;
 }
 
