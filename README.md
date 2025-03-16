@@ -38,13 +38,13 @@ git clone https://github.com/lunedor/replicate-api.git
    - Generate!
 
 ## File Structure
-
+```bash
 /
 ├── index.html          # Main interface
 ├── replicate.js        # Core logic
 ├── styles.css          # Styling
 └── README.md           # This documentation
-
+```
 
 ## Browser Requirements
 
