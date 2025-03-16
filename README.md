@@ -1,12 +1,11 @@
 # replicate-api
 
 ```markdown
-# AI Image Generation Web Interface
+# AI Image Generation Web Interface  
+[![Live Demo](https://img.shields.io/badge/demo-live-green.svg)](https://tesla.x10.mx/)
 
 [<img src="[path/to/image.png](https://img.shields.io/badge/demo-live-green.svg)">]([https://link-to-your-URL/](https://tesla.x10.mx/))
 Pure browser-based interface for Replicate's AI models using vanilla JavaScript
-
-![Interface Preview](https://via.placeholder.com/800x400.png?text=Browser-based+AI+Image+Generator)
 
 ## Features
 
