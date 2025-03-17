@@ -45,6 +45,9 @@ const modelList = {
 };
 
 let modelCache = {};
+let allModelsCache = null;
+let selectedModel = null;
+let isUserSelection = false;
 
 // Utility functions (unchanged)
 function getApiKey() {
@@ -70,6 +73,8 @@ function clearApiKey() {
     localStorage.removeItem('replicateApiKey');
 }
 
+let customModels = JSON.parse(localStorage.getItem('customModels') || '{}');
+
 function getSelectedModel() {
     const modelSelect = document.getElementById("model-select");
     if (modelSelect && modelSelect.options && modelSelect.selectedIndex >= 0) {
@@ -77,6 +82,43 @@ function getSelectedModel() {
     }
     return null;
 }
+
+function parseModelUrl(url) {
+    const match = url.match(/replicate\.com\/([^\/]+\/[^\/]+)/);
+    return match ? match[1] : null;
+}
+
+// Event Listener for Add Model
+document.getElementById('add-model').addEventListener('click', async () => {
+    const url = document.getElementById('custom-model-url').value;
+    const modelIdentifier = parseModelUrl(url);
+    
+    if (!modelIdentifier) {
+        alert('Invalid URL format. Use: https://replicate.com/owner/model-name');
+        return;
+    }
+    
+    try {
+        const versionDetails = await fetchModelVersionDetails(modelIdentifier);
+        customModels[modelIdentifier] = {
+            versions: [versionDetails.id],
+            addedAt: new Date().toISOString()
+        };
+        localStorage.setItem('customModels', JSON.stringify(customModels));
+
+        // Force UI update
+        allModelsCache = null;
+        selectedModel = modelIdentifier;
+        await populateModelSelect('');
+        
+        // Manually trigger model change
+        const event = new Event('change');
+        document.getElementById("model-select").dispatchEvent(event);
+
+    } catch (error) {
+        alert(`Failed to add model: ${error.message}`);
+    }
+});
 
 function dataURLtoBlob(dataURL) {
     const parts = dataURL.split(';base64,');
@@ -333,6 +375,7 @@ async function runPrediction() {
         generateButton.disabled = false;
     }
 }
+
 function createInputElement(name, schema) {
     const container = document.createElement("div");
     const label = document.createElement("label");
@@ -414,7 +457,75 @@ function createInputElement(name, schema) {
     return container;
 }
 
-// Add these file handling functions
+function createImageUploadField(name, schema) {
+    const container = document.createElement("div");
+
+    // Create label element
+    const label = document.createElement("label");
+    label.textContent = `${name}:`;
+    label.setAttribute("for", `input-${name}`);
+
+    // Error element
+    const error = document.createElement("div");
+    error.id = `error-${name}`;
+    error.className = "error-message";
+
+    // File input
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = "image/*";
+    fileInput.id = `input-${name}`;
+    fileInput.addEventListener("change", (event) => {
+        handleImageUpload(event, name);
+    });
+
+    // Preview container
+    const previewContainer = document.createElement("div");
+    previewContainer.className = "preview-container";
+    previewContainer.id = `${name}-preview-container`; // Add ID for targeting
+    previewContainer.style.display = 'none'; // Initially hidden
+
+    // Image preview
+    const imgPreview = document.createElement("img");
+    imgPreview.className = "image-preview";
+    imgPreview.id = `preview-${name}`;
+
+    // Remove button
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.textContent = "Remove";
+    removeButton.id = `remove-${name}-button`;
+    removeButton.style.display = 'none'; // Initially hidden
+    removeButton.addEventListener('click', () => removeImage(name));
+
+
+    // Add elements to container
+    container.appendChild(label);
+    container.appendChild(fileInput);
+    container.appendChild(error);
+    container.appendChild(previewContainer);
+    previewContainer.appendChild(imgPreview);
+    container.appendChild(removeButton); // Add remove button
+
+    if (name === "mask") {
+        // Canvas and controls
+        const canvas = document.createElement("canvas");
+        canvas.id = "canvas-mask";
+        canvas.className = "mask-canvas";
+        previewContainer.appendChild(canvas);
+
+        const controls = document.createElement("div");
+        controls.className = "brush-controls";
+        controls.innerHTML = `
+            <input type="range" id="brush-size-mask" min="1" max="100" value="20">
+            <button type="button" id="clear-mask">Clear</button>
+            <button type="button" id="undo-mask">Undo</button>
+        `;
+        container.appendChild(controls);
+    }
+
+    return container;
+}
 
 function getAcceptedFileTypes(schema) {
     // Handle Flux model's special case
@@ -804,68 +915,105 @@ function updateOutput(output) {
     }
 }
 
-async function populateModelSelect() {
+async function populateModelSelect(searchTerm = '') {
     const modelSelect = document.getElementById("model-select");
-    modelSelect.innerHTML = '<option value="" disabled selected>Loading models...</option>';
+    const modelDetails = document.getElementById("model-details-container");
 
-    const apiKey = getApiKey();
-    if (!apiKey) {
-        modelSelect.innerHTML = '<option value="" disabled selected>Enter API key to load models</option>';
-        return;
+    if (!allModelsCache) {
+        allModelsCache = {
+            ...modelList,
+            custom: Object.keys(customModels)
+        };
     }
 
-    try {
-        modelSelect.innerHTML = ''; // Clear loading message
+    // Filter models
+    const filtered = Object.entries(allModelsCache).reduce((acc, [category, models]) => {
+        const filteredModels = models.filter(model => 
+            model.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        if (filteredModels.length > 0) acc[category] = filteredModels;
+        return acc;
+    }, {});
 
-        // Add placeholder option
-        const placeholderOption = document.createElement("option");
-        placeholderOption.textContent = "Select a model";
-        placeholderOption.disabled = true;
-        placeholderOption.selected = true;
-        modelSelect.appendChild(placeholderOption);
+    modelSelect.innerHTML = '';
 
-        // Rest of your existing code
-        for (const category in modelList) {
-            const optgroup = document.createElement("optgroup");
-            optgroup.label = category.charAt(0).toUpperCase() + category.slice(1);
+    // Add placeholder
+    if (!selectedModel) {
+        const placeholder = document.createElement("option");
+        placeholder.textContent = "Select a model to view details";
+        placeholder.disabled = true;
+        placeholder.selected = true;
+        modelSelect.appendChild(placeholder);
+    }
 
-            for (const modelIdentifier of modelList[category]) {
-                const option = document.createElement("option");
-                option.value = modelIdentifier;
-                option.textContent = modelIdentifier;
-                optgroup.appendChild(option);
-            }
-            modelSelect.appendChild(optgroup);
-        }
-    } catch (error) {
-        console.error("Error populating model select:", error);
-        modelSelect.innerHTML = '<option value="" disabled selected>Error loading models</option>';
+    // Add filtered options
+    for (const [category, models] of Object.entries(filtered)) {
+        const optgroup = document.createElement("optgroup");
+        optgroup.label = category.toUpperCase();
+        
+        models.forEach(model => {
+            const option = document.createElement("option");
+            option.value = model;
+            option.textContent = model;
+            optgroup.appendChild(option);
+        });
+        
+        modelSelect.appendChild(optgroup);
+    }
+
+    // Preserve selection
+    if (selectedModel && modelSelect.querySelector(`option[value="${selectedModel}"]`)) {
+        modelSelect.value = selectedModel;
+        modelDetails.style.display = 'block';
+        isUserSelection = false;
+    } else {
+        modelDetails.style.display = 'none';
+        selectedModel = null;
     }
 }
 
-async function fetchModelVersionDetails(modelIdentifier, versionId) {
+document.getElementById('model-search').addEventListener('input', (e) => {
+    populateModelSelect(e.target.value);
+});
+
+async function fetchModelVersionDetails(modelIdentifier) {
     const apiKey = getApiKey();
     if (!apiKey) return null;
 
     try {
+        // First get model info to find latest version
         const [owner, name] = modelIdentifier.split('/');
-        const response = await fetch(
-            `https://api.replicate.com/v1/models/${owner}/${name}/versions/${versionId}`, {
+        const modelResponse = await fetch(
+            `https://api.replicate.com/v1/models/${owner}/${name}`,
+            {
                 headers: {
                     "Authorization": `Token ${apiKey}`,
                     "Content-Type": "application/json"
                 }
-            });
+            }
+        );
+        
+        if (!modelResponse.ok) throw new Error(await modelResponse.text());
+        const modelData = await modelResponse.json();
+        
+        // Now get version details using latest version ID
+        const versionId = modelData.latest_version.id;
+        const versionResponse = await fetch(
+            `https://api.replicate.com/v1/models/${owner}/${name}/versions/${versionId}`,
+            {
+                headers: {
+                    "Authorization": `Token ${apiKey}`,
+                    "Content-Type": "application/json"
+                }
+            }
+        );
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(JSON.stringify(errorData));
-        }
+        if (!versionResponse.ok) throw new Error(await versionResponse.text());
+        return await versionResponse.json();
 
-        return await response.json();
     } catch (error) {
-        console.error("Error fetching version details:", error);
-        return null;
+        console.error("Model fetch error:", error);
+        throw new Error(`Failed to load model: ${error.message}`);
     }
 }
 
@@ -901,29 +1049,44 @@ async function fetchDefaultVersion(modelIdentifier) {
     }
 }
 
-async function handleModelChange() {
-    const model = getSelectedModel();
-    if (!model) return;
-    const versionData = await fetchDefaultVersion(model);
-    if (!versionData) return;
-    currentModelVersion = {
-        modelIdentifier: model,
-        versionId: versionData.versionId,
-        owner: versionData.owner,
-        name: versionData.name
-    };
-    const versionDetails = await fetchModelVersionDetails(
-        currentModelVersion.modelIdentifier,
-        currentModelVersion.versionId
-    );
-    if (versionDetails?.openapi_schema?.components?.schemas?.Input) {
-        renderDynamicInputs(versionDetails.openapi_schema.components.schemas.Input);
-    }
+// Fix the handleModelChange function
+async function handleModelChange(e) {
+    isUserSelection = true;
+    selectedModel = e.target.value;
+    
+    if (!selectedModel) return;
 
-    // Update the model details link
-    const modelDetailsContainer = document.getElementById('model-details-container');
-    if (modelDetailsContainer) {
-        modelDetailsContainer.innerHTML = `<a href="https://replicate.com/${currentModelVersion.owner}/${currentModelVersion.name}" target="_blank">View model details on Replicate</a>`;
+    try {
+        const versionData = await fetchDefaultVersion(selectedModel);
+        currentModelVersion = {
+            modelIdentifier: selectedModel,
+            versionId: versionData.versionId,
+            owner: versionData.owner,
+            name: versionData.name
+        };
+
+        // Pass version ID to fetchModelVersionDetails
+        const versionDetails = await fetchModelVersionDetails(
+            currentModelVersion.modelIdentifier,
+            currentModelVersion.versionId // Add this parameter
+        );
+
+        if (versionDetails?.openapi_schema?.components?.schemas?.Input) {
+            renderDynamicInputs(versionDetails.openapi_schema.components.schemas.Input);
+        }
+
+        document.getElementById("model-details-container").innerHTML = `
+            <a href="https://replicate.com/${currentModelVersion.owner}/${currentModelVersion.name}" 
+               target="_blank"
+               class="model-link">
+               View model details
+            </a>
+        `;
+    } catch (error) {
+        console.error("Model change error:", error);
+        document.getElementById("model-details-container").innerHTML = `
+            <div class="error">Failed to load model details: ${error.message}</div>
+        `;
     }
 }
 
@@ -998,7 +1161,11 @@ document.addEventListener('DOMContentLoaded', function() {
         generateButton.addEventListener('click', runPrediction);
     }
 
-    modelSelect.addEventListener("change", handleModelChange);
+    modelSelect.addEventListener("change", (e) => {
+		handleModelChange(e);
+		selectedModel = e.target.value;
+		isUserSelection = false;
+	});
 
     // Initial population with API key check
     function handleModelLoading() {
