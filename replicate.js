@@ -59,8 +59,12 @@ function validateApiKey(apiKey) {
 }
 
 // Save API Key
-function saveApiKey(apiKey) {
-    localStorage.setItem('replicateApiKey', apiKey);
+function saveApiKey(key) {
+    if (key.startsWith('r8_')) { // Basic Replicate key validation
+        localStorage.setItem('replicateApiKey', key);
+        return true;
+    }
+    return false;
 }
 
 // Load API Key
@@ -752,11 +756,11 @@ function createTextInput(name, schema) {
 
 
 async function createPrediction(apiKey, versionId, input) { // Changed parameter name
-    const response = await fetch("https://api.replicate.com/v1/predictions", {
+    const response = await fetch("proxy.php?endpoint=predictions", {
         method: "POST",
         headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Token ${apiKey}`
+            'X-API-Key': apiKey, // From localStorage
+            'Content-Type': 'application/json'
         },
         body: JSON.stringify({
             version: versionId, // Directly use the version ID string
@@ -774,11 +778,11 @@ async function getPrediction(apiKey, id, retries = 3) {
     for (let i = 0; i < retries; i++) {
         try {
             const response = await fetchWithTimeout(
-                `https://api.replicate.com/v1/predictions/${id}`,
+                `https://tesla.x10.mx/proxy.php?endpoint=predictions/${id}`,
                 {
                     headers: {
-                        "Authorization": `Token ${apiKey}`,
-                        "Content-Type": "application/json"
+                        'X-API-Key': apiKey, // From localStorage
+						'Content-Type': 'application/json'
                     }
                 },
                 10000 // 10-second timeout for status checks
@@ -984,11 +988,11 @@ async function fetchModelVersionDetails(modelIdentifier) {
         // First get model info to find latest version
         const [owner, name] = modelIdentifier.split('/');
         const modelResponse = await fetch(
-            `https://api.replicate.com/v1/models/${owner}/${name}`,
+            `https://tesla.x10.mx/proxy.php?endpoint=models/${owner}/${name}`,
             {
                 headers: {
-                    "Authorization": `Token ${apiKey}`,
-                    "Content-Type": "application/json"
+                   'X-API-Key': apiKey, // From localStorage
+				   'Content-Type': 'application/json'
                 }
             }
         );
@@ -999,11 +1003,11 @@ async function fetchModelVersionDetails(modelIdentifier) {
         // Now get version details using latest version ID
         const versionId = modelData.latest_version.id;
         const versionResponse = await fetch(
-            `https://api.replicate.com/v1/models/${owner}/${name}/versions/${versionId}`,
+            `https://tesla.x10.mx/proxy.php?endpoint=models/${owner}/${name}/versions/${versionId}`,
             {
                 headers: {
-                    "Authorization": `Token ${apiKey}`,
-                    "Content-Type": "application/json"
+                   'X-API-Key': apiKey, // From localStorage
+				   'Content-Type': 'application/json'
                 }
             }
         );
@@ -1025,10 +1029,10 @@ async function fetchDefaultVersion(modelIdentifier) {
     try {
         const [owner, name] = modelIdentifier.split("/");
         const response = await fetch(
-            `https://api.replicate.com/v1/models/${owner}/${name}`, {
+            `https://tesla.x10.mx/proxy.php?endpoint=models/${owner}/${name}`, {
                 headers: {
-                    "Authorization": `Token ${getApiKey()}`,
-                    "Content-Type": "application/json"
+                    'X-API-Key': getApiKey(), // From localStorage
+				    'Content-Type': 'application/json'
                 }
             });
 
