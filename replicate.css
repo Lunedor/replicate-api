@@ -154,8 +154,13 @@ button:hover {
 }
 
 #model-details-container {
-    margin-top: 10px;
-    font-size: 14px;
+    display: block; /* Hidden by default */
+    margin-top: 1rem;
+    transition: opacity 0.2s;
+}
+
+#model-details-container.visible {
+    display: block;
 }
 
 #model-details-container a {
@@ -374,6 +379,40 @@ button:hover {
     border: 1px solid #404040;
     border-radius: 4px;
     margin-top: 1rem;
+}
+
+.custom-model-section {
+    margin: 1rem 0;
+    display: flex;
+    gap: 0.5rem;
+	align-items: baseline;
+}
+
+#custom-model-url {
+    flex: 1;
+    padding: 0.5rem;
+    background: #2a2a2a;
+    border: 1px solid #404040;
+    color: white;
+}
+
+.model-search-container {
+    margin: 10px 20px 0 0;
+}
+
+.search-input {
+    width: 100%;
+    padding: 12px;
+    background: #2a2a2a;
+    border: 1px solid #404040;
+    color: white;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #4CAF50;
 }
 
 .hidden { display: none !important; }
