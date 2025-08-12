@@ -1,3 +1,4 @@
+[![If you are a good person...](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/lunedor)
 # replicate-api
 
 # AI Image Generation Web Interface  
