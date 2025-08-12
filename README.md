@@ -1,5 +1,5 @@
 [![If you are a good person...](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/lunedor)
-# Replicate-Api
+# Replicate-API
 
 # AI Image Generation Web Interface  
 [![Live Demo](https://img.shields.io/badge/demo-live-green.svg)](https://tesla.x10.mx/)
