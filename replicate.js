@@ -40,7 +40,8 @@ const modelList = {
     ],
     "outpaint": [
         "black-forest-labs/flux-fill-pro",
-        "fermatresearch/sdxl-outpainting-lora"
+        "fermatresearch/sdxl-outpainting-lora", 
+		"wan-video/wan-2.2-i2v-fast"
     ]
 };
 
@@ -1186,3 +1187,4 @@ document.addEventListener('DOMContentLoaded', function() {
 
     handleModelLoading();
 });
+
