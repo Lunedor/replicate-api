@@ -1,4 +1,4 @@
-// replicate.js
+// replicate.js V2
 
 let canvasStates = {}; // Track state per canvas (only for the mask)
 let currentModelVersion = null;
@@ -1194,3 +1194,4 @@ document.addEventListener('DOMContentLoaded', function() {
 
     handleModelLoading();
 });
+
