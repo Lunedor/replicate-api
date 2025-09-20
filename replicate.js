@@ -757,7 +757,7 @@ function createTextInput(name, schema) {
 
 
 async function createPrediction(apiKey, versionId, input) { // Changed parameter name
-    const response = await fetch("proxy.php?endpoint=predictions", {
+    const response = await fetch("https://tesla.x10.mx/proxy.php?endpoint=predictions", {
         method: "POST",
         headers: {
             'X-API-Key': apiKey, // From localStorage
@@ -1187,4 +1187,5 @@ document.addEventListener('DOMContentLoaded', function() {
 
     handleModelLoading();
 });
+
 
