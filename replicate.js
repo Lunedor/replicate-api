@@ -308,19 +308,21 @@ async function runPrediction() {
             if (!element) continue;
 
             // --- START OF FIX ---
-            // Handle ALL file/URI inputs generically, not just a specific list.
-            // This now correctly processes 'image', 'mask', 'last_image', etc.
+            // Handle all file/URI inputs.
             if (schema.format === "uri") { 
+                // First, handle the special case for the 'mask' input, which uses the canvas.
                 if (inputName === "mask") {
                     const canvas = document.getElementById('canvas-mask');
-                    // Only add the mask if the canvas exists
                     if (canvas) input[inputName] = canvas.toDataURL('image/png');
+                
+                // For all other URI inputs (e.g., 'image', 'last_image'), handle them as file uploads.
                 } else if (element.files?.[0]) {
-                    // This is the key: if a file is selected, convert it.
-                    // If no file is selected, this condition is false, and the field is correctly omitted from the 'input' object.
+                    // Only add the field to the input if a file is actually selected.
+                    // This prevents sending an empty string for optional fields.
                     input[inputName] = await fileToDataURI(element.files[0]);
                 }
-                continue; // Important: skip to the next field
+                // If an optional URI field has no file, it's skipped and not added to the request.
+                continue; 
             }
             // --- END OF FIX ---
 
@@ -387,7 +389,6 @@ async function runPrediction() {
         generateButton.disabled = false;
     }
 }
-
 function createInputElement(name, schema) {
     const container = document.createElement("div");
     const label = document.createElement("label");
@@ -1194,4 +1195,3 @@ document.addEventListener('DOMContentLoaded', function() {
 
     handleModelLoading();
 });
-
