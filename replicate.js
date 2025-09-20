@@ -307,7 +307,7 @@ async function runPrediction() {
             if (!element) continue;
 
             // Handle file inputs
-            if (schema.format === "uri" && ["image", "mask", "image_prompt"].includes(inputName)) {
+            if (schema.format === "uri") {
                 if (inputName === "mask") {
                     const canvas = document.getElementById('canvas-mask');
                     if (canvas) input[inputName] = canvas.toDataURL('image/png');
@@ -1187,5 +1187,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     handleModelLoading();
 });
+
 
 
