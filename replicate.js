@@ -850,74 +850,104 @@ function initImageModal() {
 
 function updateOutput(output) {
     const outputImages = document.getElementById('output-images');
-    outputImages.innerHTML = '';
+    outputImages.innerHTML = ''; // Clear previous results
     
     try {
-        // Handle different output formats
-        let imageUrls = [];
+        // Handle different output formats to get an array of URLs
+        let outputUrls = [];
         
         if (typeof output === 'string') {
-            imageUrls = [output];
+            outputUrls = [output];
         } else if (Array.isArray(output)) {
-            imageUrls = output;
-        } else if (output?.image) {
-            imageUrls = [output.image];
-        } else if (output?.images) {
-            imageUrls = output.images;
+            outputUrls = output;
+        } else if (output?.image) { // Handle object with 'image' key
+            outputUrls = [output.image];
+        } else if (output?.images) { // Handle object with 'images' key
+            outputUrls = output.images;
         }
 
-        if (imageUrls.length > 0) {
-            imageUrls.forEach(imageUrl => {
+        if (outputUrls.length > 0) {
+            outputUrls.forEach(url => {
+                // --- START OF NEW LOGIC ---
+                // Check the URL to decide whether to create an image or video tag
+                
                 const container = document.createElement('div');
-                container.className = 'image-container';
-                
-                const img = document.createElement('img');
-                img.className = 'output-image';
-                img.alt = "Generated Image";
-                
-                // Loading states
-                img.style.opacity = '0.5';
-                img.style.transition = 'opacity 0.3s';
+                container.className = 'media-container'; // Use a more generic class name
 
-                img.onerror = () => {
-                    container.innerHTML = `
-                        <div class="image-error">
-                            Failed to load image<br>
-                            <a href="${imageUrl}" target="_blank">Direct link</a>
-                        </div>
-                    `;
-                };
+                // If the URL is for a video file, create a <video> element
+                if (url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.mov')) {
+                    const video = document.createElement('video');
+                    video.className = 'output-video';
+                    video.src = url;
+                    video.controls = true;    // Show player controls
+                    video.autoplay = true;    // Start playing automatically
+                    video.muted = true;       // Mute audio for autoplay to work in most browsers
+                    video.loop = true;        // Loop the video
+                    video.playsInline = true; // Important for mobile browsers
 
-                img.onload = () => {
-                    img.style.opacity = '1';
+                    video.onerror = () => {
+                        container.innerHTML = `
+                            <div class="media-error">
+                                Failed to load video<br>
+                                <a href="${url}" target="_blank">Direct link</a>
+                            </div>
+                        `;
+                    };
+
+                    container.appendChild(video);
+
+                } else {
+                    // Otherwise, create an <img> element (the original behavior)
+                    const img = document.createElement('img');
+                    img.className = 'output-image';
+                    img.alt = "Generated Image";
                     
-                    // Add click handler after image loads
-                    img.addEventListener('click', () => {
-                        const modal = document.getElementById('image-modal');
-                        const modalImg = document.getElementById('modal-image');
-                        const downloadBtn = document.getElementById('download-btn');
-                        
-                        if (modal && modalImg && downloadBtn) {
-                            modal.classList.add('modal-visible');
-                            modalImg.src = img.src;
-                            downloadBtn.dataset.downloadUrl = img.src;
-                        }
-                    });
-                };
+                    // Loading states for a smoother experience
+                    img.style.opacity = '0.5';
+                    img.style.transition = 'opacity 0.3s';
 
-                img.src = imageUrl;
-                container.appendChild(img);
+                    img.onerror = () => {
+                        container.innerHTML = `
+                            <div class="media-error">
+                                Failed to load image<br>
+                                <a href="${url}" target="_blank">Direct link</a>
+                            </div>
+                        `;
+                    };
+
+                    img.onload = () => {
+                        img.style.opacity = '1';
+                        
+                        // Add the click handler to open the modal, just for images
+                        img.addEventListener('click', () => {
+                            const modal = document.getElementById('image-modal');
+                            const modalImg = document.getElementById('modal-image');
+                            const downloadBtn = document.getElementById('download-btn');
+                            
+                            if (modal && modalImg && downloadBtn) {
+                                modal.classList.add('modal-visible');
+                                modalImg.src = img.src;
+                                downloadBtn.dataset.downloadUrl = img.src;
+                            }
+                        });
+                    };
+
+                    img.src = url;
+                    container.appendChild(img);
+                }
+                
                 outputImages.appendChild(container);
+                // --- END OF NEW LOGIC ---
             });
         } else {
             const errorMessage = document.createElement('div');
             errorMessage.className = 'output-error';
             errorMessage.innerHTML = `
-                No images found in output. Possible issues:<br>
+                No media found in output. Possible issues:<br>
                 1. Content policy violation<br>
                 2. Model-specific output format<br>
-                3. Corrupted image generation
-            `; // Removed predictionResult reference
+                3. Corrupted media generation
+            `;
             outputImages.appendChild(errorMessage);
         }
     } catch (error) {
@@ -927,7 +957,6 @@ function updateOutput(output) {
         outputImages.appendChild(errorElement);
     }
 }
-
 async function populateModelSelect(searchTerm = '') {
     const modelSelect = document.getElementById("model-select");
     const modelDetails = document.getElementById("model-details-container");
