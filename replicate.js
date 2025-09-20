@@ -269,6 +269,7 @@ async function fetchWithTimeout(url, options = {}, timeout = 30000) {
 }
 
 // Updated runPrediction function
+// Updated runPrediction function
 async function runPrediction() {
     const apiKey = getApiKey();
     const statusElement = document.getElementById('status-message');
@@ -306,16 +307,22 @@ async function runPrediction() {
             const element = document.getElementById(`input-${inputName}`);
             if (!element) continue;
 
-            // Handle file inputs
-            if (schema.format === "uri") {
+            // --- START OF FIX ---
+            // Handle ALL file/URI inputs generically, not just a specific list.
+            // This now correctly processes 'image', 'mask', 'last_image', etc.
+            if (schema.format === "uri") { 
                 if (inputName === "mask") {
                     const canvas = document.getElementById('canvas-mask');
+                    // Only add the mask if the canvas exists
                     if (canvas) input[inputName] = canvas.toDataURL('image/png');
                 } else if (element.files?.[0]) {
+                    // This is the key: if a file is selected, convert it.
+                    // If no file is selected, this condition is false, and the field is correctly omitted from the 'input' object.
                     input[inputName] = await fileToDataURI(element.files[0]);
                 }
-                continue;
+                continue; // Important: skip to the next field
             }
+            // --- END OF FIX ---
 
             // Handle other input types
             switch(schema.type) {
@@ -1187,6 +1194,3 @@ document.addEventListener('DOMContentLoaded', function() {
 
     handleModelLoading();
 });
-
-
-
